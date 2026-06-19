@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIP39 Application Validator</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #0f172a; 
+            color: #f8fafc; 
+            padding: 40px 20px;
+            margin: 0;
+        }
+        .container { 
+            max-width: 700px; 
+            margin: 0 auto; 
+            background: #1e293b; 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); 
+        }
+        h2 { text-align: center; color: #38bdf8; margin-top: 0; }
+        p { color: #94a3b8; font-size: 14px; }
+        textarea { 
+            width: 100%; 
+            height: 100px; 
+            margin-bottom: 15px; 
+            padding: 12px; 
+            background: #0f172a;
+            color: #fff;
+            border: 1px solid #334155; 
+            border-radius: 6px; 
+            font-size: 16px;
+            resize: none;
+        }
+        textarea:focus { outline: none; border-color: #38bdf8; }
+        button { 
+            width: 100%; 
+            padding: 14px; 
+            background: #0284c7; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover { background: #0369a1; }
+        #result { 
+            margin-top: 25px; 
+            padding: 20px; 
+            background: #0f172a; 
+            border-radius: 6px; 
+            border: 1px solid #334155;
+        }
+        .error { color: #f87171; font-weight: bold; }
+        .success { color: #4ade80; font-weight: bold; }
+        .box { 
+            background: #1e293b; 
+            padding: 12px; 
+            border: 1px solid #475569; 
+            margin: 8px 0 18px 0; 
+            font-family: monospace; 
+            word-break: break-all;
+            border-radius: 4px;
+            color: #e2e8f0;
+        }
+        .label-title { font-weight: bold; color: #94a3b8; display: block; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>BIP39 Key & Balance Resolver</h2>
+    <p>Voer hieronder de 12 of 24 herstelwoorden in om het netwerkadres te berekenen, de private key te tonen en het live saldo te controleren via de blockchain.</p>
+    
+    <textarea id="phraseInput" placeholder="Bijvoorbeeld: apple banana cat dog ..."></textarea>
+    <button onclick="checkWallet()">Genereer Gegevens & Check Saldo</button>
+    
+    <div id="result">Status: Wacht op invoer...</div>
+</div>
+
+<!-- Veilige en stabiele distributie van ethers.js specifiek voor webapplicaties -->
+<script src="https://ethers.io" type="text/javascript"></script>
+
+<script>
+    async function checkWallet() {
+        const resultDiv = document.getElementById('result');
+        const rawInput = document.getElementById('phraseInput').value.trim();
+        
+        if (!rawInput) {
+            resultDiv.innerHTML = '<span class="error">Fout: Voer eerst de herstelwoorden in.</span>';
+            return;
+        }
+
+        resultDiv.innerHTML = 'Bezig met verwerken en blockchain scannen...';
+
+        // Schoonmaken van invoer (alles naar kleine letters, spaties normaliseren)
+        const cleanPhrase = rawInput.toLowerCase().replace(/\s+/g, ' ');
+        const words = cleanPhrase.split(' ');
+
+        if (words.length !== 12 && words.length !== 24) {
+            resultDiv.innerHTML = `<span class="error">Fout: Ongeldig aantal woorden. Je hebt ${words.length} woorden ingevoerd. Dit moeten er exact 12 of 24 zijn.</span>`;
+            return;
+        }
+
+        try {
+            // Controleer of de cryptografische bibliotheek correct functioneert
+            if (typeof ethers === 'undefined') {
+                resultDiv.innerHTML = '<span class="error">Fout: De cryptografische library kon niet worden geladen. Controleer je internetverbinding.</span>';
+                return;
+            }
+
+            // Genereer de cryptografische sleutels op basis van de woorden
+            const wallet = ethers.Wallet.fromMnemonic(cleanPhrase);
+            
+            // Toon direct de gegenereerde sleutels zodat de app altijd werkt, ook bij trage netwerken
+            resultDiv.innerHTML = `
+                <p class="success">✓ Sleutelpaar succesvol berekend!</p>
+                
+                <span class="label-title">Publiek Netwerk Adres (Public Address):</span>
+                <div class="box">${wallet.address}</div>
+                
+                <span class="label-title">Werkende Geheime Sleutel (Private Key):</span>
+                <div class="box" style="border-left: 4px solid #f59e0b;">${wallet.privateKey}</div>
+                
+                <span class="label-title">Netwerk Saldo:</span>
+                <div class="box" id="balanceBox">Bezig met ophalen uit de blockchain...</div>
+            `;
+
+            // Maak verbinding met een betrouwbare openbare RPC-node die CORS toestaat op GitHub Pages
+            const provider = new ethers.providers.JsonRpcProvider("https://ankr.com");
+            
+            // Haal het saldo op
+            const balance = await provider.getBalance(wallet.address);
+            const ethBalance = ethers.utils.formatEther(balance);
+
+            // Update alleen het saldobandje zodra de blockchain reageert
+            document.getElementById('balanceBox').innerHTML = `${ethBalance} ETH`;
+
+        } catch (error) {
+            resultDiv.innerHTML = `<span class="error">Fout: De ingevoerde combinatie is geen geldige BIP39-reeks. Controleer de spelling van de woorden.</span>`;
+            console.error(error);
+        }
+    }
+</script>
+
+</body>
+</html>
